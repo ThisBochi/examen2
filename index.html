@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sprint – Biblioteca Escolar</title>
+
+<style>
+    body {
+        background: #eef2f3;
+        font-family: Arial;
+        display: flex;
+        justify-content: center;
+        margin: 0;
+        padding: 0;
+    }
+    .card {
+        width: 420px;
+        background: white;
+        margin-top: 40px;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px #bbb;
+    }
+    h2 { text-align: center; }
+    input, button, select {
+        width: 100%;
+        padding: 10px;
+        margin-top: 7px;
+        border-radius: 5px;
+        border: 1px solid gray;
+    }
+    button {
+        background: #0a86ff;
+        border: none;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    button:hover { background: #0569c5; }
+    .hidden { display: none; }
+    .error { color: red; }
+    .success { color: green; }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <!-- HOME -->
+    <div id="home">
+        <h2>Biblioteca Escolar</h2>
+        <button onclick="show('registrar')">Registrar Socio</button>
+        <button onclick="show('prestamo')">Prestar Libro</button>
+        <button onclick="show('devolver')">Devolver Libro</button>
+        <button onclick="show('estado')">Estado del Socio</button>
+    </div>
+
+    <!-- REGISTRO -->
+    <div id="registrar" class="hidden">
+        <h2>Registrar Socio</h2>
+        <input id="dni" placeholder="DNI">
+        <input id="nombre" placeholder="Nombre">
+        <input id="cert" placeholder="Certificado Alumno Regular (Sí/No)">
+        <button onclick="registrarSocio()">Registrar</button>
+        <button onclick="show('home')">Volver</button>
+        <p id="msgReg"></p>
+    </div>
+
+    <!-- PRESTAMO -->
+    <div id="prestamo" class="hidden">
+        <h2>Préstamo de Libro</h2>
+
+        <input id="dniP" placeholder="DNI del socio">
+        <input id="libroP" placeholder="Nombre del libro">
+        <button onclick="prestarLibro()">Prestar</button>
+        <button onclick="show('home')">Volver</button>
+
+        <p id="msgPrest"></p>
+    </div>
+
+    <!-- DEVOLUCIÓN -->
+    <div id="devolver" class="hidden">
+        <h2>Devolver Libro</h2>
+
+        <input id="dniD" placeholder="DNI del socio">
+        <input id="libroD" placeholder="Nombre del libro">
+        <button onclick="devolverLibro()">Registrar Devolución</button>
+        <button onclick="show('home')">Volver</button>
+
+        <p id="msgDev"></p>
+    </div>
+
+    <!-- ESTADO -->
+    <div id="estado" class="hidden">
+        <h2>Estado del Socio</h2>
+
+        <input id="dniE" placeholder="DNI del socio">
+        <button onclick="verEstado()">Ver Estado</button>
+        <button onclick="show('home')">Volver</button>
+
+        <p id="msgEstado"></p>
+    </div>
+
+</div>
+
+<script>
+
+let socios = {};        // socios registrados
+let libros = {};        // estado de cada libro
+let suspensiones = {};  // suspensión de 15 días
+
+function show(id) {
+    document.querySelectorAll('.card > div').forEach(x => x.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+}
+
+// ------------- REGISTRO DE SOCIO -------------------
+function registrarSocio() {
+    let dni = document.getElementById("dni").value;
+    let nombre = document.getElementById("nombre").value;
+    let cert = document.getElementById("cert").value.toLowerCase();
+    let msg = document.getElementById("msgReg");
+
+    if (!dni || !nombre || cert !== "sí") {
+        msg.innerHTML = "<span class='error'>Debe presentar DNI y certificado válido.</span>";
+        return;
+    }
+    socios[dni] = { nombre, prestamos: [], suspendido: false };
+    msg.innerHTML = "<span class='success'>Socio registrado correctamente.</span>";
+}
+
+// ------------- PRESTAMO -------------------
+function prestarLibro() {
+    let dni = document.getElementById("dniP").value;
+    let libro = document.getElementById("libroP").value;
+    let msg = document.getElementById("msgPrest");
+
+    if (!socios[dni]) {
+        msg.innerHTML = "<span class='error'>Socio no registrado.</span>";
+        return;
+    }
+
+    if (socios[dni].suspendido) {
+        msg.innerHTML = "<span class='error'>Socio suspendido. No puede pedir libros.</span>";
+        return;
+    }
+
+    if (socios[dni].prestamos.length >= 3) {
+        msg.innerHTML = "<span class='error'>Ya posee 3 préstamos vigentes.</span>";
+        return;
+    }
+
+    if (libros[libro] && libros[libro].prestado) {
+        msg.innerHTML = "<span class='error'>El libro ya está prestado.</span>";
+        return;
+    }
+
+    // registrar préstamo
+    libros[libro] = { prestado: true, dni, fecha: new Date() };
+    socios[dni].prestamos.push(libro);
+
+    msg.innerHTML = "<span class='success'>Préstamo registrado.</span>";
+}
+
+// ------------- DEVOLUCIÓN -------------------
+function devolverLibro() {
+    let dni = document.getElementById("dniD").value;
+    let libro = document.getElementById("libroD").value;
+    let msg = document.getElementById("msgDev");
+
+    if (!socios[dni]) {
+        msg.innerHTML = "<span class='error'>Socio no registrado.</span>";
+        return;
+    }
+    if (!libros[libro] || libros[libro].dni !== dni) {
+        msg.innerHTML = "<span class='error'>Ese socio no tiene ese libro.</span>";
+        return;
+    }
+
+    // cálculo de vencimiento
+    let fechaPrestamo = libros[libro].fecha;
+    let hoy = new Date();
+    let dias = Math.floor((hoy - fechaPrestamo) / (1000*60*60*24));
+
+    if (dias > 7) {
+        socios[dni].suspendido = true;
+        msg.innerHTML = "<span class='error'>Préstamo vencido. El socio queda suspendido 15 días.</span>";
+    } else {
+        msg.innerHTML = "<span class='success'>Devolución registrada.</span>";
+    }
+
+    libros[libro].prestado = false;
+    socios[dni].prestamos = socios[dni].prestamos.filter(x => x !== libro);
+}
+
+// ----------- ESTADO DEL SOCIO ----------------
+function verEstado() {
+    let dni = document.getElementById("dniE").value;
+    let msg = document.getElementById("msgEstado");
+
+    if (!socios[dni]) {
+        msg.innerHTML = "<span class='error'>Socio no registrado.</span>";
+        return;
+    }
+
+    msg.innerHTML = `
+        <b>Socio:</b> ${socios[dni].nombre}<br>
+        <b>Prestamos vigentes:</b> ${socios[dni].prestamos.join(", ") || "Ninguno"}<br>
+        <b>Suspendido:</b> ${socios[dni].suspendido ? "Sí (15 días)" : "No"}<br>
+    `;
+}
+
+</script>
+
+</body>
+</html>
